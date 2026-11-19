@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Compare product details side by side at VOLT MARKET.">
+  <title>Compare Products — VOLT MARKET</title>
+  <link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+  <div id="site-header"></div>
+  <main class="container">
+    <header class="page-heading">
+      <span class="eyebrow">Choose with confidence</span>
+      <h1>Compare products</h1>
+      <p>Review important details side by side before you decide.</p>
+    </header>
+    <div class="wishlist-toolbar">
+      <span id="compareCount" style="color:var(--text-secondary)"></span>
+      <button id="clearCompare" class="btn btn-ghost btn-sm" type="button" onclick="clearCompare()" hidden>Clear comparison</button>
+    </div>
+    <div id="comparisonContent"></div>
+  </main>
+  <div id="site-footer"></div>
+  <script src="js/data-service.js"></script>
+  <script src="js/i18n.js"></script>
+  <script src="js/core.js"></script>
+  <script>
+    function renderCompare() {
+      const ids = Compare.get();
+      const products = ProductHelper.getAll().filter(product => ids.includes(product.id));
+      document.getElementById('compareCount').textContent = `${products.length} of 4 products selected`;
+      document.getElementById('clearCompare').hidden = products.length === 0;
+      const target = document.getElementById('comparisonContent');
+      if (!products.length) {
+        target.innerHTML = `<div class="empty-state"><div class="empty-state-icon">⇄</div><h3>No products to compare yet</h3><p>Add up to four items using the compare control on product cards.</p><a href="catalog.html" class="btn btn-primary" style="margin-top:1rem">Browse catalog</a></div>`;
+        return;
+      }
+
+      const rows = [
+        ['Brand', product => product.brandName || '—'],
+        ['Price', product => DataService.formatPrice(product.price)],
+        ['Rating', product => `${Number(product.rating || 0).toFixed(1)} / 5 (${product.reviewCount || 0} reviews)`],
+        ['Category', product => product.categoryName || '—'],
+        ['Availability', product => product.stock > 0 ? `${product.stock} in stock` : 'Out of stock'],
+        ['Warranty', product => product.warranty || '—'],
+        ['Highlights', product => product.description || '—']
+      ];
+      target.innerHTML = `
+        <div class="comparison-wrap">
+          <table class="comparison-table">
+            <thead><tr><th>Product details</th>${products.map(product => `
+              <th class="comparison-product">
+                <a href="product.html?id=${encodeURIComponent(product.id)}"><img src="${product.mainImage}" alt="${product.name}" onerror="this.src='assets/images/product-placeholder.svg'"><strong>${product.name}</strong></a>
+                <div style="margin-top:0.65rem;display:flex;justify-content:center;gap:0.5rem;flex-wrap:wrap">
+                  <button class="btn btn-primary btn-sm" type="button" onclick="Cart.add('${product.id}')" ${product.stock < 1 ? 'disabled' : ''}>Add to cart</button>
+                  <button class="btn btn-ghost btn-sm" type="button" onclick="removeCompared('${product.id}')">Remove</button>
+                </div>
+              </th>`).join('')}</tr></thead>
+            <tbody>${rows.map(([label, value]) => `<tr><td>${label}</td>${products.map(product => `<td>${value(product)}</td>`).join('')}</tr>`).join('')}</tbody>
+          </table>
+        </div>`;
+    }
+
+    function removeCompared(id) {
+      Compare.save(Compare.get().filter(productId => productId !== id));
+      renderCompare();
+    }
+
+    function clearCompare() {
+      Compare.save([]);
+      renderCompare();
+      DataService.toast('Comparison cleared', 'success');
+    }
+
+    document.addEventListener('DOMContentLoaded', renderCompare);
+  </script>
+</body>
+</html>

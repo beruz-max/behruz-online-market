@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Checkout — VOLT MARKET</title>
+  <link rel="stylesheet" href="css/main.css">
+  <style>
+    .checkout-layout { display: grid; grid-template-columns: 1fr 380px; gap: 2rem; padding: 2rem 0; }
+    .checkout-section { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 1.5rem; margin-bottom: 1.5rem; }
+    .checkout-section h3 { font-size: 1.1rem; font-weight: 600; margin-bottom: 1.25rem; }
+    .summary-box { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 1.5rem; position: sticky; top: 140px; }
+    @media (max-width: 768px) { .checkout-layout { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div id="site-header"></div>
+  <div class="container">
+    <h1 style="font-size:1.75rem;font-weight:700;padding:2rem 0 0.5rem">Checkout</h1>
+    <div class="checkout-layout" id="checkoutContent"></div>
+  </div>
+  <div id="site-footer"></div>
+  <script src="js/data-service.js"></script>
+  <script src="js/i18n.js"></script>
+  <script src="js/payment-config.js"></script>
+  <script src="js/core.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      setTimeout(() => {
+        const cart = Cart.get();
+        if (cart.length === 0) { window.location.href = 'cart.html'; return; }
+        const products = DataService.get(VOLT_STORAGE_KEYS.products) || [];
+        const settings = DataService.get(VOLT_STORAGE_KEYS.settings) || {};
+        const user = Auth.getCurrentUser();
+        let subtotal = 0;
+        const items = cart.map(item => {
+          const p = products.find(pr => pr.id === item.productId);
+          if (!p) return null;
+          subtotal += p.price * item.quantity;
+          return { ...item, product: p };
+        }).filter(Boolean);
+
+        if (!items.length) {
+          Cart.clear();
+          window.location.href = 'cart.html';
+          return;
+        }
+        if (items.length !== cart.length) Cart.save(items.map(item => ({ productId: item.productId, quantity: item.quantity, addedAt: item.addedAt })));
+
+        const freeDeliveryMin = Number(settings.freeDeliveryMin ?? 100);
+        const shipping = subtotal >= freeDeliveryMin ? 0 : Number(settings.deliveryFee ?? 15);
+        const tax = Math.round(subtotal * Number(settings.taxRate ?? 0.08) * 100) / 100;
+        let discount = 0;
+        let appliedCoupon = null;
+
+        function updateTotal() {
+          const total = subtotal + shipping + tax - discount;
+          document.getElementById('orderTotal').textContent = DataService.formatPrice(total);
+          document.getElementById('discountRow').style.display = discount > 0 ? 'flex' : 'none';
+          if (discount > 0) document.getElementById('discountVal').textContent = '-' + DataService.formatPrice(discount);
+        }
+
+        document.getElementById('checkoutContent').innerHTML = `
+          <div>
+            <div class="checkout-section">
+              <h3>Contact Information</h3>
+              <div class="form-group"><label class="form-label">Email</label><input type="email" class="form-input" id="email" value="${user?.email || ''}" required></div>
+              <div class="form-group"><label class="form-label">Phone</label><input type="tel" class="form-input" id="phone" value="${user?.phone || ''}" required></div>
+            </div>
+            <div class="checkout-section">
+              <h3>Shipping Address</h3>
+              <div class="form-group"><label class="form-label">Full Name</label><input type="text" class="form-input" id="fullName" value="${user ? user.firstName + ' ' + user.lastName : ''}" required></div>
+              <div class="form-group"><label class="form-label">Address</label><input type="text" class="form-input" id="address" required></div>
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem">
+                <div class="form-group"><label class="form-label">City</label><input type="text" class="form-input" id="city" required></div>
+                <div class="form-group"><label class="form-label">State</label><input type="text" class="form-input" id="state" required></div>
+                <div class="form-group"><label class="form-label">ZIP</label><input type="text" class="form-input" id="zip" required></div>
+              </div>
+            </div>
+            <div class="checkout-section">
+              <h3>Payment Method</h3>
+              <p style="color:var(--text-muted);font-size:0.82rem;margin:-0.65rem 0 0.9rem">${window.VOLT_PAYMENT_CONFIG?.clickCreateUrl ? 'Card details are entered only on Click’s secure checkout page.' : 'Demo checkout: card entry is safely hosted by Click after a server integration is configured.'}</p>
+              <label class="payment-option" style="display:flex;align-items:center;gap:10px;padding:0.75rem;border:1px solid var(--border-color);border-radius:8px;margin-bottom:0.7rem;cursor:pointer">
+                <input type="radio" name="payment" value="click" ${window.VOLT_PAYMENT_CONFIG?.clickCreateUrl ? '' : 'disabled'}> 💳 Click / bank card ${window.VOLT_PAYMENT_CONFIG?.clickCreateUrl ? '' : '<span style="color:var(--text-muted);font-size:0.8rem">(server integration not configured)</span>'}
+              </label>
+              <div class="checkout-card-handoff" aria-label="Secure hosted card checkout preview">
+                <div class="checkout-card-art" aria-hidden="true">
+                  <div class="checkout-card-top"><span>VOLT PAY</span><span>◉ ◉</span></div>
+                  <div class="checkout-card-chip"></div>
+                  <strong>•••• &nbsp; •••• &nbsp; •••• &nbsp; ••••</strong>
+                  <div class="checkout-card-foot"><span>SECURE HANDOFF</span><b>CLICK</b></div>
+                </div>
+                <div class="checkout-card-copy">
+                  <span class="checkout-lock">⌑ &nbsp; CARD DATA STAYS WITH CLICK</span>
+                  <strong>Protected card checkout</strong>
+                  <p>${window.VOLT_PAYMENT_CONFIG?.clickCreateUrl ? 'Continue to Click’s hosted payment page to enter your card securely.' : 'This is a visual preview only. Never type a real card number here; connect the secure Click merchant server to enable checkout.'}</p>
+                  <small>🔒 Hosted payment · no card details stored by this demo</small>
+                </div>
+              </div>
+              <label style="display:flex;align-items:center;gap:10px;padding:0.75rem;border:1px solid var(--border-color);border-radius:8px;cursor:pointer">
+                <input type="radio" name="payment" value="cash_on_delivery" checked> 💵 Cash on Delivery
+              </label>
+            </div>
+            <div class="checkout-section">
+              <h3>Coupon Code</h3>
+              <div style="display:flex;gap:0.75rem">
+                <input type="text" class="form-input" id="couponCode" placeholder="Enter coupon code">
+                <button class="btn btn-secondary" onclick="applyCoupon()">Apply</button>
+              </div>
+              <div id="couponMsg" style="margin-top:0.5rem;font-size:0.85rem"></div>
+            </div>
+          </div>
+          <div class="summary-box">
+            <h3 style="font-size:1.1rem;font-weight:600;margin-bottom:1rem">Order Summary</h3>
+            ${items.map(i => `<div style="display:flex;gap:10px;margin-bottom:0.75rem;font-size:0.9rem">
+              <img src="${i.product.mainImage}" style="width:48px;height:48px;object-fit:cover;border-radius:6px" onerror="this.src='assets/images/product-placeholder.svg'">
+              <div style="flex:1"><div style="font-weight:500">${i.product.name}</div><div style="color:var(--text-muted)">x${i.quantity}</div></div>
+              <div style="font-weight:600">${DataService.formatPrice(i.product.price * i.quantity)}</div>
+            </div>`).join('')}
+            <div style="border-top:1px solid var(--border-color);margin:1rem 0;padding-top:1rem">
+              <div style="display:flex;justify-content:space-between;padding:0.4rem 0"><span>Subtotal</span><span>${DataService.formatPrice(subtotal)}</span></div>
+              <div style="display:flex;justify-content:space-between;padding:0.4rem 0"><span>Shipping</span><span>${shipping === 0 ? 'FREE' : DataService.formatPrice(shipping)}</span></div>
+              <div style="display:flex;justify-content:space-between;padding:0.4rem 0"><span>Tax</span><span>${DataService.formatPrice(tax)}</span></div>
+              <div id="discountRow" style="display:none;justify-content:space-between;padding:0.4rem 0;color:var(--success)"><span>Discount</span><span id="discountVal"></span></div>
+              <div style="display:flex;justify-content:space-between;padding:0.75rem 0 0;font-size:1.2rem;font-weight:700;color:var(--accent-secondary)"><span>Total</span><span id="orderTotal">${DataService.formatPrice(subtotal + shipping + tax)}</span></div>
+            </div>
+            <button class="btn btn-primary" style="width:100%;padding:0.9rem;margin-top:0.5rem" onclick="placeOrder()">Place Order</button>
+          </div>
+        `;
+
+        window.applyCoupon = function() {
+          const code = document.getElementById('couponCode').value.trim().toUpperCase();
+          const coupons = DataService.get(VOLT_STORAGE_KEYS.coupons) || [];
+          const coupon = coupons.find(c => c.code === code);
+          const msg = document.getElementById('couponMsg');
+          const isExpired = coupon?.expiresAt && new Date(`${coupon.expiresAt}T23:59:59`) < new Date();
+          const isExhausted = coupon && Number.isFinite(coupon.maxUses) && (coupon.usedCount || 0) >= coupon.maxUses;
+          if (!coupon || coupon.status !== 'active' || isExpired || isExhausted) {
+            msg.style.color = 'var(--error)';
+            msg.textContent = isExpired || coupon?.status === 'expired' ? 'This coupon has expired' : isExhausted ? 'This coupon has reached its usage limit' : 'Invalid coupon code';
+            discount = 0;
+            appliedCoupon = null;
+            updateTotal();
+            return;
+          }
+          if (subtotal < Number(coupon.minOrder || 0)) {
+            msg.style.color = 'var(--error)';
+            msg.textContent = `Minimum order ${DataService.formatPrice(coupon.minOrder)}`;
+            discount = 0;
+            appliedCoupon = null;
+            updateTotal();
+            return;
+          }
+          if (coupon.type === 'percentage') discount = Math.round(subtotal * coupon.value / 100 * 100) / 100;
+          else discount = Number(coupon.value) || 0;
+          discount = Math.min(subtotal, discount);
+          appliedCoupon = coupon;
+          msg.style.color = 'var(--success)';
+          msg.textContent = `Coupon applied! You save ${DataService.formatPrice(discount)}`;
+          updateTotal();
+        };
+
+        window.placeOrder = async function() {
+          const email = document.getElementById('email').value;
+          const phone = document.getElementById('phone').value;
+          const fullName = document.getElementById('fullName').value;
+          const address = document.getElementById('address').value;
+          const city = document.getElementById('city').value;
+          const state = document.getElementById('state').value;
+          const zip = document.getElementById('zip').value;
+          const invalidField = [...document.querySelectorAll('#checkoutContent input[required]')].find(input => !input.checkValidity());
+          if (!email || !phone || !fullName || !address || !city || !state || !zip || invalidField) {
+            DataService.toast('Please fill all required fields', 'error');
+            invalidField?.focus();
+            return;
+          }
+          const minOrderAmount = Number(settings.minOrderAmount ?? 0);
+          if (subtotal < minOrderAmount) {
+            DataService.toast(`Minimum order is ${DataService.formatPrice(minOrderAmount)}.`, 'warning');
+            return;
+          }
+
+          const paymentMethod = document.querySelector('input[name="payment"]:checked').value;
+          if (paymentMethod === 'click') {
+            const endpoint = window.VOLT_PAYMENT_CONFIG?.clickCreateUrl;
+            if (!endpoint) {
+              DataService.toast('Click merchant server is not configured. Choose cash on delivery for this demo.', 'warning');
+              return;
+            }
+            try {
+              const response = await fetch(endpoint, {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  items: items.map(item => ({ productId: item.productId, quantity: item.quantity })),
+                  customer: { email, phone, fullName },
+                  shippingAddress: { fullName, phone, address, city, state, zip, country: 'UZ' },
+                  couponCode: appliedCoupon?.code || null
+                })
+              });
+              if (!response.ok) throw new Error('Payment session could not be created');
+              const paymentSession = await response.json();
+              const checkoutUrl = new URL(paymentSession.checkoutUrl);
+              if (checkoutUrl.protocol !== 'https:' && checkoutUrl.hostname !== window.location.hostname) {
+                throw new Error('Payment provider returned an unsafe URL');
+              }
+              window.location.assign(checkoutUrl.href);
+            } catch (error) {
+              DataService.toast(error.message || 'Could not connect to Click. Your cart is unchanged.', 'error');
+            }
+            return;
+          }
+
+          const total = subtotal + shipping + tax - discount;
+          const orders = DataService.get(VOLT_STORAGE_KEYS.orders) || [];
+          const orderId = `ORD-${String(10000 + orders.length + 1)}`;
+
+          const allProducts = DataService.get(VOLT_STORAGE_KEYS.products) || [];
+          const unavailableItem = items.find(item => {
+            const currentProduct = allProducts.find(product => product.id === item.productId);
+            return !currentProduct || currentProduct.status !== 'active' || currentProduct.stock < item.quantity;
+          });
+          if (unavailableItem) {
+            DataService.toast(`${unavailableItem.product.name} is no longer available in the requested quantity.`, 'error');
+            window.location.href = 'cart.html';
+            return;
+          }
+
+          // Update stock only after checking current inventory.
+          items.forEach(i => {
+            const pi = allProducts.findIndex(p => p.id === i.productId);
+            if (pi > -1) {
+              allProducts[pi].stock = Math.max(0, allProducts[pi].stock - i.quantity);
+              allProducts[pi].soldCount = (allProducts[pi].soldCount || 0) + i.quantity;
+              if (allProducts[pi].stock === 0) allProducts[pi].status = 'out_of_stock';
+            }
+          });
+          DataService.set(VOLT_STORAGE_KEYS.products, allProducts);
+
+          const order = {
+            id: orderId,
+            userId: user?.id || 'guest',
+            customerName: fullName,
+            customerEmail: email,
+            customerPhone: phone,
+            items: items.map(i => ({ productId: i.productId, productName: i.product.name, productImage: i.product.mainImage, price: i.product.price, quantity: i.quantity, total: i.product.price * i.quantity })),
+            subtotal, shipping, tax, discount, total,
+            status: 'pending',
+            paymentMethod,
+            paymentStatus: 'pending',
+            shippingAddress: { fullName, phone, address, city, state, zip, country: 'UZ' },
+            couponCode: appliedCoupon?.code || null,
+            trackingNumber: null,
+            notes: '',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          };
+
+          orders.unshift(order);
+          DataService.set(VOLT_STORAGE_KEYS.orders, orders);
+          Cart.clear();
+
+          // Update coupon usage
+          if (appliedCoupon) {
+            const coupons = DataService.get(VOLT_STORAGE_KEYS.coupons) || [];
+            const ci = coupons.findIndex(c => c.id === appliedCoupon.id);
+            if (ci > -1) { coupons[ci].usedCount = (coupons[ci].usedCount || 0) + 1; DataService.set(VOLT_STORAGE_KEYS.coupons, coupons); }
+          }
+
+          window.location.href = `order-success.html?id=${orderId}`;
+        };
+      }, 100);
+    });
+  </script>
+</body>
+</html>

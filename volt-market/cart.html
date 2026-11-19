@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shopping Cart — VOLT MARKET</title>
+  <link rel="stylesheet" href="css/main.css">
+  <style>
+    .cart-layout { display: grid; grid-template-columns: 1fr 360px; gap: 2rem; padding: 2rem 0; }
+    .cart-item { display: flex; gap: 1.25rem; padding: 1.25rem; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); margin-bottom: 1rem; }
+    .cart-item img { width: 100px; height: 100px; object-fit: cover; border-radius: var(--radius-md); }
+    .cart-summary { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 1.5rem; height: fit-content; position: sticky; top: 140px; }
+    .summary-row { display: flex; justify-content: space-between; padding: 0.6rem 0; font-size: 0.95rem; }
+    .summary-row.total { font-size: 1.2rem; font-weight: 700; border-top: 1px solid var(--border-color); margin-top: 0.5rem; padding-top: 1rem; color: var(--accent-secondary); }
+    .qty-ctrl { display: flex; align-items: center; border: 1px solid var(--border-color); border-radius: 6px; width: fit-content; }
+    .qty-ctrl button { width: 32px; height: 32px; cursor: pointer; color: var(--text-secondary); }
+    .qty-ctrl span { width: 36px; text-align: center; font-weight: 600; font-size: 0.9rem; }
+    @media (max-width: 768px) { .cart-layout { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div id="site-header"></div>
+  <div class="container">
+    <h1 style="font-size:1.75rem;font-weight:700;padding:2rem 0 1rem">Shopping Cart</h1>
+    <div class="cart-layout" id="cartContent"></div>
+  </div>
+  <div id="site-footer"></div>
+  <script src="js/data-service.js"></script>
+  <script src="js/i18n.js"></script>
+  <script src="js/core.js"></script>
+  <script>
+    function renderCart() {
+      const cart = Cart.get();
+      const products = DataService.get(VOLT_STORAGE_KEYS.products) || [];
+      const settings = DataService.get(VOLT_STORAGE_KEYS.settings) || {};
+      const el = document.getElementById('cartContent');
+      const validCart = cart.filter(item => products.some(product => product.id === item.productId));
+      if (validCart.length !== cart.length) Cart.save(validCart);
+
+      if (validCart.length === 0) {
+        el.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="empty-state-icon">🛒</div><h3>Your cart is empty</h3><p>Looks like you haven't added anything yet</p><a href="catalog.html" class="btn btn-primary" style="margin-top:1rem">Continue Shopping</a></div>`;
+        return;
+      }
+
+      let subtotal = 0;
+      const itemsHtml = cart.map(item => {
+        const p = products.find(pr => pr.id === item.productId);
+        if (!p) return '';
+        const total = p.price * item.quantity;
+        subtotal += total;
+        return `
+          <div class="cart-item">
+            <a href="product.html?id=${p.id}"><img src="${p.mainImage}" alt="${p.name}" onerror="this.src='assets/images/product-placeholder.svg'"></a>
+            <div style="flex:1">
+              <a href="product.html?id=${p.id}" style="font-weight:600;font-size:1rem">${p.name}</a>
+              <div style="color:var(--text-muted);font-size:0.85rem;margin:0.25rem 0">${p.brandName} · ${p.sku}</div>
+              <div style="color:var(--accent-secondary);font-weight:700;margin:0.5rem 0">${DataService.formatPrice(p.price)}</div>
+              <div style="display:flex;align-items:center;justify-content:space-between">
+                <div class="qty-ctrl">
+                  <button onclick="Cart.updateQuantity('${p.id}', ${item.quantity - 1}); renderCart()">−</button>
+                  <span>${item.quantity}</span>
+                  <button onclick="Cart.updateQuantity('${p.id}', ${item.quantity + 1}); renderCart()">+</button>
+                </div>
+                <div>
+                  <strong>${DataService.formatPrice(total)}</strong>
+                  <button class="btn btn-ghost btn-sm" style="margin-left:1rem;color:var(--error)" onclick="Cart.remove('${p.id}'); renderCart()">Remove</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      const freeDeliveryMin = Number(settings.freeDeliveryMin ?? 100);
+      const shippingFee = Number(settings.deliveryFee ?? 15);
+      const shipping = subtotal >= freeDeliveryMin ? 0 : shippingFee;
+      const tax = Math.round(subtotal * Number(settings.taxRate ?? 0.08) * 100) / 100;
+      const total = subtotal + shipping + tax;
+      const remainingForFreeShipping = Math.max(0, freeDeliveryMin - subtotal);
+
+      el.innerHTML = `
+        <div>${itemsHtml}</div>
+        <div class="cart-summary">
+          <h3 style="font-size:1.1rem;font-weight:600;margin-bottom:1rem">Order Summary</h3>
+          ${remainingForFreeShipping > 0 ? `<p style="font-size:0.82rem;color:var(--text-secondary);padding:0.7rem 0.8rem;margin-bottom:0.5rem;border-radius:var(--radius-md);background:rgba(75,141,255,0.08)">Add ${DataService.formatPrice(remainingForFreeShipping)} more for free delivery.</p>` : '<p style="font-size:0.82rem;color:var(--success);padding:0.7rem 0.8rem;margin-bottom:0.5rem;border-radius:var(--radius-md);background:rgba(16,185,129,0.08)">Your order qualifies for free delivery.</p>'}
+          <div class="summary-row"><span>Subtotal</span><span>${DataService.formatPrice(subtotal)}</span></div>
+          <div class="summary-row"><span>Shipping</span><span>${shipping === 0 ? 'FREE' : DataService.formatPrice(shipping)}</span></div>
+          <div class="summary-row"><span>Tax</span><span>${DataService.formatPrice(tax)}</span></div>
+          <div class="summary-row total"><span>Total</span><span>${DataService.formatPrice(total)}</span></div>
+          <a href="checkout.html" class="btn btn-primary" style="width:100%;margin-top:1.25rem;padding:0.9rem">Proceed to Checkout</a>
+          <a href="catalog.html" class="btn btn-ghost" style="width:100%;margin-top:0.5rem">Continue Shopping</a>
+        </div>
+      `;
+    }
+    document.addEventListener('DOMContentLoaded', renderCart);
+  </script>
+</body>
+</html>

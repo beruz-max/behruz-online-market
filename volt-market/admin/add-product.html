@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Add Product — VOLT Admin</title>
+  <link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+  <script src="../js/data-service.js"></script>
+  <script src="../js/i18n.js"></script>
+  <script src="js/admin-auth.js"></script>
+  <script src="js/admin-core.js"></script>
+  <script>
+    let editId = null;
+
+    document.addEventListener('DOMContentLoaded', () => {
+      if (!AdminAuth.requireAuth()) return;
+      if (typeof initializeDemoData === 'function') initializeDemoData();
+
+      const params = new URLSearchParams(window.location.search);
+      editId = params.get('id');
+      const title = editId ? 'Edit Product' : 'Add Product';
+
+      const content = AdminUI.initLayout(editId ? 'products' : 'add-product', title);
+      const categories = AdminUI.getCategories();
+      const brands = AdminUI.getBrands();
+      let product = null;
+
+      if (editId) {
+        product = AdminUI.getProducts().find(p => p.id === editId);
+        if (!product) {
+          AdminUI.toast('Product not found', 'error');
+          window.location.href = 'products.html';
+          return;
+        }
+      }
+
+      content.innerHTML = `
+        <form id="productForm" onsubmit="saveProduct(event)">
+          <div class="grid-2">
+            <div class="a-card">
+              <div class="a-card-header"><h3>Basic Information</h3></div>
+              <div class="a-card-body">
+                <div class="a-form-group">
+                  <label class="a-label">Product Name *</label>
+                  <input type="text" class="a-input" id="name" required value="${product?.name || ''}">
+                </div>
+                <div class="a-form-group">
+                  <label class="a-label">SKU</label>
+                  <input type="text" class="a-input" id="sku" value="${product?.sku || ''}" placeholder="Auto-generated if empty">
+                </div>
+                <div class="grid-2">
+                  <div class="a-form-group">
+                    <label class="a-label">Category *</label>
+                    <select class="a-select" id="categoryId" required>
+                      <option value="">Select category</option>
+                      ${categories.map(c => `<option value="${c.id}" ${product?.categoryId === c.id ? 'selected' : ''}>${c.name}</option>`).join('')}
+                    </select>
+                  </div>
+                  <div class="a-form-group">
+                    <label class="a-label">Brand *</label>
+                    <select class="a-select" id="brandId" required>
+                      <option value="">Select brand</option>
+                      ${brands.map(b => `<option value="${b.id}" ${product?.brandId === b.id ? 'selected' : ''}>${b.name}</option>`).join('')}
+                    </select>
+                  </div>
+                </div>
+                <div class="a-form-group">
+                  <label class="a-label">Description</label>
+                  <textarea class="a-textarea" id="description" rows="4">${product?.description || ''}</textarea>
+                </div>
+              </div>
+            </div>
+
+            <div class="a-card">
+              <div class="a-card-header"><h3>Pricing & Stock</h3></div>
+              <div class="a-card-body">
+                <div class="grid-2">
+                  <div class="a-form-group">
+                    <label class="a-label">Price (UZS) *</label>
+                    <input type="number" class="a-input" id="price" required min="0" step="0.01" value="${product?.price || ''}">
+                  </div>
+                  <div class="a-form-group">
+                    <label class="a-label">Old Price (UZS)</label>
+                    <input type="number" class="a-input" id="oldPrice" min="0" step="0.01" value="${product?.oldPrice || ''}">
+                  </div>
+                </div>
+                <div class="grid-2">
+                  <div class="a-form-group">
+                    <label class="a-label">Stock *</label>
+                    <input type="number" class="a-input" id="stock" required min="0" value="${product?.stock ?? 10}">
+                  </div>
+                  <div class="a-form-group">
+                    <label class="a-label">Status</label>
+                    <select class="a-select" id="status">
+                      <option value="active" ${product?.status === 'active' ? 'selected' : ''}>Active</option>
+                      <option value="out_of_stock" ${product?.status === 'out_of_stock' ? 'selected' : ''}>Out of Stock</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="a-form-group">
+                  <label class="a-label">Warranty</label>
+                  <input type="text" class="a-input" id="warranty" value="${product?.warranty || '1 Year Official Warranty'}">
+                </div>
+                <div class="a-form-group">
+                  <label class="a-label">Main Image URL</label>
+                  <input type="url" class="a-input" id="mainImage" value="${product?.mainImage || ''}" placeholder="https://...">
+                </div>
+                <div style="display:flex;gap:1rem;flex-wrap:wrap">
+                  <label class="checkbox-label"><input type="checkbox" id="isNew" ${product?.isNew ? 'checked' : ''}> New Arrival</label>
+                  <label class="checkbox-label"><input type="checkbox" id="isBestSeller" ${product?.isBestSeller ? 'checked' : ''}> Best Seller</label>
+                  <label class="checkbox-label"><input type="checkbox" id="isFeatured" ${product?.isFeatured ? 'checked' : ''}> Featured</label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div style="margin-top:1.5rem;display:flex;gap:1rem;justify-content:flex-end">
+            <a href="products.html" class="a-btn a-btn-secondary">Cancel</a>
+            <button type="submit" class="a-btn a-btn-primary">${editId ? 'Update Product' : 'Create Product'}</button>
+          </div>
+        </form>
+      `;
+    });
+
+    function saveProduct(e) {
+      e.preventDefault();
+      const categories = AdminUI.getCategories();
+      const brands = AdminUI.getBrands();
+      const products = AdminUI.getProducts();
+
+      const categoryId = document.getElementById('categoryId').value;
+      const brandId = document.getElementById('brandId').value;
+      const cat = categories.find(c => c.id === categoryId);
+      const brand = brands.find(b => b.id === brandId);
+      const price = parseFloat(document.getElementById('price').value);
+      const oldPrice = parseFloat(document.getElementById('oldPrice').value) || null;
+      const stock = parseInt(document.getElementById('stock').value);
+      const name = document.getElementById('name').value.trim();
+
+      let discount = 0;
+      if (oldPrice && oldPrice > price) {
+        discount = Math.round((1 - price / oldPrice) * 100);
+      }
+
+      if (editId) {
+        const idx = products.findIndex(p => p.id === editId);
+        if (idx === -1) return;
+        products[idx] = {
+          ...products[idx],
+          name,
+          sku: document.getElementById('sku').value || products[idx].sku,
+          categoryId,
+          categoryName: cat?.name || '',
+          brandId,
+          brandName: brand?.name || '',
+          price,
+          oldPrice,
+          discount,
+          description: document.getElementById('description').value,
+          mainImage: document.getElementById('mainImage').value || products[idx].mainImage,
+          stock,
+          warranty: document.getElementById('warranty').value,
+          status: stock === 0 ? 'out_of_stock' : document.getElementById('status').value,
+          isNew: document.getElementById('isNew').checked,
+          isBestSeller: document.getElementById('isBestSeller').checked,
+          isFeatured: document.getElementById('isFeatured').checked,
+          updatedAt: new Date().toISOString()
+        };
+        AdminUI.saveProducts(products);
+        AdminUI.toast('Product updated successfully', 'success');
+      } else {
+        const newProduct = {
+          id: `prod_${String(products.length + 1).padStart(5, '0')}_${Date.now().toString(36)}`,
+          sku: document.getElementById('sku').value || `VLT-${Date.now().toString(36).toUpperCase()}`,
+          name,
+          slug: name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+          categoryId,
+          categoryName: cat?.name || '',
+          brandId,
+          brandName: brand?.name || '',
+          price,
+          oldPrice,
+          discount,
+          description: document.getElementById('description').value || `Premium ${name}`,
+          shortDescription: name,
+          mainImage: document.getElementById('mainImage').value || 'assets/images/product-placeholder.svg',
+          gallery: [],
+          colors: ['Black'],
+          specifications: {},
+          stock,
+          warranty: document.getElementById('warranty').value,
+          status: stock === 0 ? 'out_of_stock' : document.getElementById('status').value,
+          isNew: document.getElementById('isNew').checked,
+          isBestSeller: document.getElementById('isBestSeller').checked,
+          isFeatured: document.getElementById('isFeatured').checked,
+          rating: 0,
+          reviewCount: 0,
+          soldCount: 0,
+          views: 0,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+        products.unshift(newProduct);
+        AdminUI.saveProducts(products);
+
+        // Update category count
+        if (cat) {
+          const cats = AdminUI.getCategories();
+          const ci = cats.findIndex(c => c.id === categoryId);
+          if (ci > -1) { cats[ci].productCount = (cats[ci].productCount || 0) + 1; AdminUI.saveCategories(cats); }
+        }
+
+        AdminUI.toast('Product created successfully', 'success');
+      }
+
+      setTimeout(() => window.location.href = 'products.html', 800);
+    }
+  </script>
+</body>
+</html>

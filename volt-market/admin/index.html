@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VOLT Admin</title>
+  <script src="js/admin-auth.js"></script>
+  <script>
+    window.location.replace(AdminAuth.isLoggedIn() ? 'dashboard.html' : 'login.html');
+  </script>
+</head>
+<body>
+  <p>Opening the VOLT Admin panel… <a href="login.html">Continue to admin login</a></p>
+</body>
+</html>

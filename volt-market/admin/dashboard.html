@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard — VOLT Admin</title>
+  <link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+  <script src="../js/data-service.js"></script>
+  <script src="../js/i18n.js"></script>
+  <script src="js/admin-auth.js"></script>
+  <script src="js/admin-core.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      if (!AdminAuth.requireAuth()) return;
+
+      // Ensure data
+      if (typeof initializeDemoData === 'function') initializeDemoData();
+
+      const content = AdminUI.initLayout('dashboard', 'Dashboard');
+
+      const products = AdminUI.getProducts();
+      const orders = AdminUI.getOrders();
+      const users = AdminUI.getUsers();
+      const categories = AdminUI.getCategories();
+
+      const totalRevenue = orders.filter(o => o.status !== 'cancelled').reduce((s, o) => s + o.total, 0);
+      const pendingOrders = orders.filter(o => o.status === 'pending').length;
+      const completedOrders = orders.filter(o => o.status === 'delivered').length;
+      const cancelledOrders = orders.filter(o => o.status === 'cancelled').length;
+      const lowStock = products.filter(p => p.stock > 0 && p.stock <= 10).length;
+      const outOfStock = products.filter(p => p.stock === 0).length;
+
+      // Recent orders
+      const recentOrders = [...orders].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 8);
+
+      // Top products
+      const topProducts = [...products].sort((a, b) => b.soldCount - a.soldCount).slice(0, 5);
+
+      // Chart data (last 7 days revenue simulation)
+      const chartData = [];
+      for (let i = 6; i >= 0; i--) {
+        const dayOrders = orders.filter(o => {
+          const d = new Date(o.createdAt);
+          const target = new Date();
+          target.setDate(target.getDate() - i);
+          return d.toDateString() === target.toDateString() && o.status !== 'cancelled';
+        });
+        const rev = dayOrders.reduce((s, o) => s + o.total, 0) || Math.random() * 2000 + 500;
+        chartData.push({ label: ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date(Date.now() - i * 86400000).getDay()], value: rev });
+      }
+      const maxChart = Math.max(...chartData.map(d => d.value));
+
+      content.innerHTML = `
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-icon blue">💰</div>
+            <div class="stat-info">
+              <h4>Total Revenue</h4>
+              <div class="value">${AdminUI.formatPrice(totalRevenue)}</div>
+              <div class="change up">↑ from ${orders.length} orders</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon cyan">🛒</div>
+            <div class="stat-info">
+              <h4>Total Orders</h4>
+              <div class="value">${orders.length}</div>
+              <div class="change">${pendingOrders} pending</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon green">👥</div>
+            <div class="stat-info">
+              <h4>Customers</h4>
+              <div class="value">${users.length}</div>
+              <div class="change up">Registered users</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon purple">📦</div>
+            <div class="stat-info">
+              <h4>Products</h4>
+              <div class="value">${products.length}</div>
+              <div class="change">${lowStock} low stock</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon orange">⏳</div>
+            <div class="stat-info">
+              <h4>Pending Orders</h4>
+              <div class="value">${pendingOrders}</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon green">✅</div>
+            <div class="stat-info">
+              <h4>Completed</h4>
+              <div class="value">${completedOrders}</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon red">❌</div>
+            <div class="stat-info">
+              <h4>Cancelled</h4>
+              <div class="value">${cancelledOrders}</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon orange">⚠️</div>
+            <div class="stat-info">
+              <h4>Low Stock</h4>
+              <div class="value">${lowStock}</div>
+              <div class="change down">${outOfStock} out of stock</div>
+            </div>
+          </div>
+        </div>
+
+        <section class="ops-deck" aria-label="Local operations console">
+          <div class="ops-terminal a-card">
+            <div class="ops-terminal-head">
+              <div><span class="ops-kicker">VOLT // OPS TERMINAL</span><strong>Store diagnostics</strong></div>
+              <span class="ops-demo-pill"><i></i> LOCAL DEMO</span>
+            </div>
+            <div class="ops-terminal-screen" id="opsOutput" role="log" aria-live="polite">
+              <div class="term-line term-system"><span>[BOOT]</span> VOLT operations interface ready</div>
+              <div class="term-line"><span>[STORE]</span> ${products.length} catalog records loaded from this browser</div>
+              <div class="term-line term-warn"><span>[PAYMENT]</span> Click gateway requires secure server configuration</div>
+              <div class="term-line"><span>[HINT]</span> Type <b>help</b> to inspect safe demo commands</div>
+            </div>
+            <form class="ops-command-form" id="opsCommandForm" autocomplete="off">
+              <label for="opsCommand">operator@volt:~$</label>
+              <input id="opsCommand" name="command" type="text" placeholder="help | status | products | orders | clear" aria-label="Safe store console command" spellcheck="false">
+              <button class="a-btn a-btn-primary a-btn-sm" type="submit">RUN</button>
+            </form>
+          </div>
+          <aside class="ops-node-panel a-card">
+            <div class="ops-node-title"><span class="ops-kicker">NODE STATUS</span><span class="ops-ring">◎</span></div>
+            <div class="ops-node-row"><span><i class="node-dot node-online"></i> Catalog cache</span><b>LOCAL</b></div>
+            <div class="ops-node-row"><span><i class="node-dot node-online"></i> Admin session</span><b>ACTIVE</b></div>
+            <div class="ops-node-row"><span><i class="node-dot node-offline"></i> Click payments</span><b>NOT CONFIGURED</b></div>
+            <div class="ops-node-meter"><div><span>Inventory records</span><strong>${products.length}</strong></div><div class="meter-track"><i style="width:${Math.min(100, products.length ? 100 : 0)}%"></i></div></div>
+            <p class="ops-node-note">Demo data stays in this browser. No real payment or remote database connection is active.</p>
+          </aside>
+        </section>
+
+        <div class="grid-2" style="margin-bottom:1.5rem">
+          <div class="a-card">
+            <div class="a-card-header">
+              <h3>Revenue Analytics (7 days)</h3>
+            </div>
+            <div class="a-card-body">
+              <div class="chart-placeholder">
+                ${chartData.map(d => `
+                  <div class="chart-bar" style="height:${(d.value / maxChart * 100)}%">
+                    <span>${AdminUI.formatPrice(d.value).replace('.00','')}</span>
+                  </div>
+                `).join('')}
+              </div>
+              <div style="display:flex;justify-content:space-between;font-size:0.75rem;color:var(--admin-text3);margin-top:0.5rem">
+                ${chartData.map(d => `<span>${d.label}</span>`).join('')}
+              </div>
+            </div>
+          </div>
+
+          <div class="a-card">
+            <div class="a-card-header">
+              <h3>Top Selling Products</h3>
+            </div>
+            <div class="a-card-body" style="padding:0">
+              <div class="a-table-wrap">
+                <table class="a-table">
+                  <thead>
+                    <tr><th>Product</th><th>Sold</th><th>Price</th></tr>
+                  </thead>
+                  <tbody>
+                    ${topProducts.map(p => `
+                      <tr>
+                        <td>
+                          <div style="display:flex;align-items:center;gap:10px">
+                            <img src="${p.mainImage}" class="prod-thumb" onerror="this.src='../assets/images/product-placeholder.svg'">
+                            <span style="font-size:0.85rem;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.name}</span>
+                          </div>
+                        </td>
+                        <td>${p.soldCount}</td>
+                        <td>${AdminUI.formatPrice(p.price)}</td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="a-card">
+          <div class="a-card-header">
+            <h3>Recent Orders</h3>
+            <a href="orders.html" class="a-btn a-btn-secondary a-btn-sm">View All</a>
+          </div>
+          <div class="a-card-body" style="padding:0">
+            <div class="a-table-wrap">
+              <table class="a-table">
+                <thead>
+                  <tr>
+                    <th>Order ID</th>
+                    <th>Customer</th>
+                    <th>Items</th>
+                    <th>Total</th>
+                    <th>Status</th>
+                    <th>Date</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${recentOrders.map(o => `
+                    <tr>
+                      <td><strong>${o.id}</strong></td>
+                      <td>${o.customerName}</td>
+                      <td>${o.items.length} item(s)</td>
+                      <td>${AdminUI.formatPrice(o.total)}</td>
+                      <td>${AdminUI.getStatusBadge(o.status)}</td>
+                      <td>${AdminUI.formatDate(o.createdAt)}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      `;
+
+      const opsOutput = document.getElementById('opsOutput');
+      const commandForm = document.getElementById('opsCommandForm');
+      commandForm.addEventListener('submit', event => {
+        event.preventDefault();
+        const commandInput = document.getElementById('opsCommand');
+        const command = commandInput.value.trim().toLowerCase();
+        if (!command) return;
+        if (command === 'clear') {
+          opsOutput.replaceChildren();
+          commandInput.value = '';
+          return;
+        }
+
+        const results = {
+          help: 'Available: help, status, products, orders, clear. These commands only inspect this local demo.',
+          status: `LOCAL DEMO ACTIVE · ${AdminUI.getProducts().length} products · ${AdminUI.getOrders().length} local orders · Click gateway not configured.`,
+          products: `Catalog cache contains ${AdminUI.getProducts().length} product records in browser storage.`,
+          orders: AdminUI.getOrders().slice(0, 4).map(order => `${order.id}  ${String(order.status).toUpperCase()}  ${AdminUI.formatPrice(order.total)}`).join('  |  ') || 'No local orders found.'
+        };
+        const commandLine = document.createElement('div');
+        commandLine.className = 'term-line term-command';
+        commandLine.textContent = `operator@volt:~$ ${command}`;
+        const resultLine = document.createElement('div');
+        resultLine.className = 'term-line term-result';
+        resultLine.textContent = results[command] || `Unknown command: ${command}. Type help to see safe commands.`;
+        opsOutput.append(commandLine, resultLine);
+        opsOutput.scrollTop = opsOutput.scrollHeight;
+        commandInput.value = '';
+        commandInput.focus();
+      });
+    });
+  </script>
+</body>
+</html>

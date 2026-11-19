@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VOLT MARKET — Premium Electronics Store</title>
+  <meta name="description" content="VOLT MARKET - Your premier destination for cutting-edge electronics and premium technology.">
+  <link rel="stylesheet" href="css/main.css">
+  <style>
+    .stats-bar {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1.5rem;
+      margin: 3rem 0;
+    }
+    .stat-item {
+      text-align: center;
+      padding: 1.5rem;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+    }
+    .stat-item .num {
+      font-size: 2rem;
+      font-weight: 800;
+      background: var(--accent-gradient);
+      background-clip: text;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .stat-item .label {
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+      margin-top: 0.25rem;
+    }
+    .brand-strip {
+      display: flex;
+      gap: 2rem;
+      overflow-x: auto;
+      padding: 1.5rem 0;
+      align-items: center;
+    }
+    .brand-strip img {
+      height: 32px;
+      opacity: 0.5;
+      filter: grayscale(1) brightness(2);
+      transition: all 0.3s;
+      cursor: pointer;
+    }
+    .brand-strip img:hover {
+      opacity: 1;
+      filter: none;
+    }
+    .brand-pill {
+      display: grid;
+      min-width: 130px;
+      min-height: 58px;
+      place-items: center;
+      padding: 0.8rem 1rem;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      color: var(--text-secondary);
+      font-size: 0.88rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      transition: all var(--transition-base);
+    }
+    .brand-pill:hover { border-color: var(--accent-primary); color: var(--accent-secondary); transform: translateY(-2px); }
+    @media (max-width: 768px) {
+      .stats-bar { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+  <div id="site-header"></div>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="hero-bg"></div>
+    <div class="container hero-layout">
+      <div class="hero-content">
+        <span class="hero-eyebrow">A more considered way to shop tech</span>
+        <h1>Technology that moves <span>you forward.</span></h1>
+        <p>Explore thoughtfully selected devices for work, play and everything in between. Clear choices, useful details, one seamless experience.</p>
+        <div class="hero-actions">
+          <a href="catalog.html" class="btn btn-primary btn-lg">Explore the collection <span aria-hidden="true">↗</span></a>
+          <a href="catalog.html?filter=deals" class="btn btn-outline btn-lg">Discover offers</a>
+        </div>
+        <div class="hero-assurance"><span>Curated product details</span><span>Compare before you choose</span></div>
+      </div>
+      <div class="hero-showcase" id="heroSpotlight" aria-live="polite">
+        <div class="hero-orbit"></div>
+        <div class="spotlight-card">
+          <div class="spotlight-image"></div>
+          <div class="spotlight-meta"><div><span class="eyebrow">VOLT selection</span><h2>Finding your next favorite</h2></div><span class="spotlight-price">Explore</span></div>
+        </div>
+        <div class="spotlight-float">✦ Editor’s pick</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Live catalog metrics -->
+  <div class="container">
+    <div class="stats-bar" aria-label="Store catalog overview">
+      <div class="stat-item">
+        <div class="num" id="stat-products">1000+</div>
+        <div class="label">Products to explore</div>
+      </div>
+      <div class="stat-item">
+        <div class="num" id="stat-brands">20</div>
+        <div class="label">Technology brands</div>
+      </div>
+      <div class="stat-item">
+        <div class="num" id="stat-categories">10</div>
+        <div class="label">Useful categories</div>
+      </div>
+      <div class="stat-item">
+        <div class="num" id="stat-deals">—</div>
+        <div class="label">Current offers</div>
+      </div>
+    </div>
+
+    <div class="service-strip" aria-label="Shopping tools">
+      <div class="service-item"><span class="service-icon">⌕</span><div><strong>Find the right fit</strong><span>Search and filter precisely</span></div></div>
+      <div class="service-item"><span class="service-icon">⇄</span><div><strong>Make a clear choice</strong><span>Compare product details</span></div></div>
+      <div class="service-item"><span class="service-icon">♡</span><div><strong>Save for later</strong><span>Keep a personal shortlist</span></div></div>
+      <div class="service-item"><span class="service-icon">⚡</span><div><strong>Built for convenience</strong><span>Cart and checkout in one place</span></div></div>
+    </div>
+  </div>
+
+  <!-- Categories -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title">Shop by Category</h2>
+      <p class="section-subtitle">Explore our wide range of premium electronics</p>
+      <div class="category-grid" id="categoryGrid"></div>
+    </div>
+  </section>
+
+  <!-- Featured Products -->
+  <section class="section" style="background: var(--bg-secondary)">
+    <div class="container">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2rem">
+        <div>
+          <h2 class="section-title" style="margin-bottom:0.5rem">Featured Products</h2>
+          <p class="section-subtitle" style="margin-bottom:0">Hand-picked premium selections</p>
+        </div>
+        <a href="catalog.html" class="btn btn-outline">View All</a>
+      </div>
+      <div class="product-grid" id="featuredProducts"></div>
+    </div>
+  </section>
+
+  <!-- Deals -->
+  <section class="section">
+    <div class="container">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2rem">
+        <div>
+          <h2 class="section-title" style="margin-bottom:0.5rem">🔥 Hot Deals</h2>
+          <p class="section-subtitle" style="margin-bottom:0">Limited time offers you don't want to miss</p>
+        </div>
+        <a href="catalog.html?filter=deals" class="btn btn-outline">All Deals</a>
+      </div>
+      <div class="product-grid" id="dealsProducts"></div>
+    </div>
+  </section>
+
+  <!-- New Arrivals -->
+  <section class="section" style="background: var(--bg-secondary)">
+    <div class="container">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2rem">
+        <div>
+          <h2 class="section-title" style="margin-bottom:0.5rem">New Arrivals</h2>
+          <p class="section-subtitle" style="margin-bottom:0">Fresh tech just landed</p>
+        </div>
+        <a href="catalog.html?filter=new" class="btn btn-outline">See All</a>
+      </div>
+      <div class="product-grid" id="newProducts"></div>
+    </div>
+  </section>
+
+  <!-- Brands -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title">Top Brands</h2>
+      <div class="brand-strip" id="brandStrip"></div>
+    </div>
+  </section>
+
+  <section class="section" style="padding-top:0">
+    <div class="container">
+      <div class="newsletter-panel">
+        <div><span class="eyebrow">The VOLT edit</span><h2>Good tech. Better decisions.</h2><p>Get a local preview of new arrivals and product picks. This demo stores your signup in this browser only.</p></div>
+        <form class="newsletter-form" id="newsletterForm">
+          <input class="form-input" id="newsletterEmail" type="email" placeholder="Your email address" aria-label="Your email address" required>
+          <button class="btn btn-primary" type="submit">Get updates <span aria-hidden="true">→</span></button>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <div id="site-footer"></div>
+
+  <script src="js/data-service.js"></script>
+  <script src="js/i18n.js"></script>
+  <script src="js/core.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const categories = DataService.get(VOLT_STORAGE_KEYS.categories) || [];
+      const brands = DataService.get(VOLT_STORAGE_KEYS.brands) || [];
+      const products = DataService.get(VOLT_STORAGE_KEYS.products) || [];
+
+      // Categories
+      document.getElementById('categoryGrid').innerHTML = categories.map(c => `
+          <a href="catalog.html?cat=${c.slug}" class="category-card">
+            <img src="${c.image}" alt="${c.name}" loading="lazy" onerror="this.src='assets/images/product-placeholder.svg'">
+            <h3>${c.name}</h3>
+            <span>${c.productCount} products</span>
+          </a>
+        `).join('');
+
+      // Featured
+      document.getElementById('featuredProducts').innerHTML =
+        ProductHelper.getFeatured(8).map(p => ProductHelper.renderCard(p)).join('');
+
+      // Deals
+      document.getElementById('dealsProducts').innerHTML =
+        ProductHelper.getDeals(4).map(p => ProductHelper.renderCard(p)).join('');
+
+      // New arrivals
+      document.getElementById('newProducts').innerHTML =
+        ProductHelper.getNewArrivals(8).map(p => ProductHelper.renderCard(p)).join('');
+
+      // Brands
+        document.getElementById('brandStrip').innerHTML = brands.slice(0, 12).map(b => `
+          <a class="brand-pill" href="catalog.html?brand=${b.slug}" title="Browse ${b.name}">${b.name}</a>
+        `).join('');
+
+      // Use actual demo catalog data rather than invented store metrics.
+      document.getElementById('stat-products').textContent = products.length.toLocaleString();
+      document.getElementById('stat-brands').textContent = brands.length;
+      document.getElementById('stat-categories').textContent = categories.length;
+      document.getElementById('stat-deals').textContent = products.filter(p => p.status === 'active' && p.discount > 0).length;
+
+      const spotlight = ProductHelper.getFeatured(1)[0] || ProductHelper.getAll().find(p => p.status === 'active');
+      if (spotlight) {
+        document.getElementById('heroSpotlight').innerHTML = `
+          <div class="hero-orbit"></div>
+          <a class="spotlight-card" href="product.html?id=${encodeURIComponent(spotlight.id)}" aria-label="Explore ${spotlight.name}">
+            <div class="spotlight-image"><img src="${spotlight.mainImage}" alt="${spotlight.name}" onerror="this.src='assets/images/product-placeholder.svg'"></div>
+            <div class="spotlight-meta"><div><span class="eyebrow">VOLT selection · ${spotlight.brandName}</span><h2>${spotlight.name}</h2></div><span class="spotlight-price">${DataService.formatPrice(spotlight.price)}</span></div>
+          </a>
+          <div class="spotlight-float">✦ ${spotlight.rating.toFixed(1)} rated</div>
+        `;
+      }
+
+      document.getElementById('newsletterForm').addEventListener('submit', event => {
+        event.preventDefault();
+        const email = document.getElementById('newsletterEmail').value.trim().toLowerCase();
+        const subscribers = DataService.get('volt_newsletter_subscribers') || [];
+        if (subscribers.includes(email)) {
+          DataService.toast('You are already on this browser’s update list.', 'info');
+          return;
+        }
+        DataService.set('volt_newsletter_subscribers', [...subscribers, email]);
+        event.currentTarget.reset();
+        DataService.toast('You are on the local demo update list.', 'success');
+      });
+    });
+  </script>
+</body>
+</html>

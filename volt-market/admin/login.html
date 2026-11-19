@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Login — VOLT MARKET</title>
+  <link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+  <div class="login-page">
+    <div class="login-card">
+      <label class="admin-locale login-locale" aria-label="Site language">
+        <select data-language-switch aria-label="Site language"><option value="uz">UZ</option><option value="ru">RU</option><option value="en">EN</option></select>
+      </label>
+      <div class="login-system-bar"><span><i></i> AUTH NODE // 07</span><span>LOCAL DEMO</span></div>
+      <div class="login-logo">
+        <div class="icon">⚡</div>
+        <h1>VOLT MARKET</h1>
+        <p>Admin Panel Login</p>
+      </div>
+      <div class="login-boot-log" aria-label="Demo system status">
+        <span>VOLT operations console initialized</span>
+        <span>Session gate ready · 24h expiry</span>
+        <span>Demo authentication only · no production server</span>
+      </div>
+
+      <div class="login-error" id="loginError"></div>
+
+      <form id="loginForm" onsubmit="handleLogin(event)">
+        <div class="a-form-group">
+          <label class="a-label">Username</label>
+          <input type="text" class="a-input" id="username" placeholder="Enter username" required autocomplete="username">
+        </div>
+        <div class="a-form-group">
+          <label class="a-label">Password</label>
+          <div class="password-wrap">
+            <input type="password" class="a-input" id="password" placeholder="Enter password" required autocomplete="current-password">
+            <span class="password-toggle" onclick="togglePassword()" title="Show/Hide">👁</span>
+          </div>
+        </div>
+        <div class="a-form-group">
+          <label class="checkbox-label">
+            <input type="checkbox" id="remember">
+            Remember me (demo)
+          </label>
+        </div>
+        <button type="submit" class="a-btn a-btn-primary" style="width:100%;padding:0.85rem;font-size:1rem">
+          Sign In
+        </button>
+      </form>
+
+      <p style="margin-top:1.5rem;text-align:center;font-size:0.85rem;color:var(--admin-text2)">
+        <a href="../index.html" style="color:var(--admin-accent2)">← Back to store</a>
+      </p>
+    </div>
+  </div>
+
+  <script src="js/admin-auth.js"></script>
+  <script src="../js/i18n.js"></script>
+  <script>
+    // Redirect if already logged in
+    if (AdminAuth.isLoggedIn()) {
+      window.location.href = 'dashboard.html';
+    }
+
+    function togglePassword() {
+      const input = document.getElementById('password');
+      input.type = input.type === 'password' ? 'text' : 'password';
+    }
+
+    function handleLogin(e) {
+      e.preventDefault();
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value;
+      const remember = document.getElementById('remember').checked;
+      const errorEl = document.getElementById('loginError');
+
+      const result = AdminAuth.login(username, password, remember);
+      if (result.success) {
+        window.location.href = 'dashboard.html';
+      } else {
+        errorEl.textContent = result.message;
+        errorEl.classList.add('show');
+      }
+    }
+  </script>
+</body>
+</html>

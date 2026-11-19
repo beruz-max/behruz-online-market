@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Register — VOLT MARKET</title>
+  <link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+  <div id="site-header"></div>
+  <div class="container" style="max-width:480px;padding:3rem 1.5rem">
+    <div class="card" style="padding:2rem">
+      <h1 style="font-size:1.5rem;font-weight:700;text-align:center;margin-bottom:0.5rem">Create Account</h1>
+      <p style="text-align:center;color:var(--text-secondary);margin-bottom:2rem;font-size:0.95rem">Join VOLT MARKET today</p>
+      <div id="errorMsg" style="display:none;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);color:var(--error);padding:0.75rem;border-radius:8px;margin-bottom:1rem;font-size:0.9rem"></div>
+      <form onsubmit="handleRegister(event)">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+          <div class="form-group"><label class="form-label">First Name</label><input type="text" class="form-input" id="firstName" required></div>
+          <div class="form-group"><label class="form-label">Last Name</label><input type="text" class="form-input" id="lastName" required></div>
+        </div>
+        <div class="form-group"><label class="form-label">Email</label><input type="email" class="form-input" id="email" required></div>
+        <div class="form-group"><label class="form-label">Phone</label><input type="tel" class="form-input" id="phone"></div>
+        <div class="form-group"><label class="form-label">Password</label><input type="password" class="form-input" id="password" required minlength="6"></div>
+        <button type="submit" class="btn btn-primary" style="width:100%;padding:0.85rem">Create Account</button>
+      </form>
+      <p style="text-align:center;margin-top:1.5rem;font-size:0.9rem;color:var(--text-secondary)">Already have an account? <a href="login.html" style="color:var(--accent-secondary);font-weight:600">Sign In</a></p>
+    </div>
+  </div>
+  <div id="site-footer"></div>
+  <script src="js/data-service.js"></script>
+  <script src="js/i18n.js"></script>
+  <script src="js/core.js"></script>
+  <script>
+    function handleRegister(e) {
+      e.preventDefault();
+      const result = Auth.register({
+        firstName: document.getElementById('firstName').value,
+        lastName: document.getElementById('lastName').value,
+        email: document.getElementById('email').value,
+        phone: document.getElementById('phone').value,
+        password: document.getElementById('password').value
+      });
+      if (result.success) {
+        DataService.toast('Account created!', 'success');
+        setTimeout(() => window.location.href = 'index.html', 500);
+      } else {
+        const el = document.getElementById('errorMsg');
+        el.textContent = result.message;
+        el.style.display = 'block';
+      }
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Your saved VOLT MARKET products.">
+  <title>Wishlist — VOLT MARKET</title>
+  <link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+  <div id="site-header"></div>
+  <main class="container">
+    <header class="page-heading">
+      <span class="eyebrow">Your shortlist</span>
+      <h1>Wishlist</h1>
+      <p>Keep the products you are considering in one place.</p>
+    </header>
+    <div class="wishlist-toolbar">
+      <span id="wishlistCount" style="color:var(--text-secondary)"></span>
+      <button id="clearWishlist" class="btn btn-ghost btn-sm" type="button" onclick="clearWishlist()" hidden>Clear wishlist</button>
+    </div>
+    <div class="product-grid" id="wishlistGrid"></div>
+  </main>
+  <div id="site-footer"></div>
+  <script src="js/data-service.js"></script>
+  <script src="js/i18n.js"></script>
+  <script src="js/core.js"></script>
+  <script>
+    function renderWishlist() {
+      const savedIds = Wishlist.get();
+      const products = ProductHelper.getAll().filter(product => savedIds.includes(product.id));
+      document.getElementById('wishlistCount').textContent = `${products.length} saved product${products.length === 1 ? '' : 's'}`;
+      document.getElementById('clearWishlist').hidden = products.length === 0;
+      const grid = document.getElementById('wishlistGrid');
+      grid.innerHTML = products.length
+        ? products.map(product => `
+          <article>
+            ${ProductHelper.renderCard(product)}
+            <button class="btn btn-ghost btn-sm" type="button" style="width:100%;margin-top:0.5rem;color:var(--error)" onclick="removeWishlistItem('${product.id}')">Remove from wishlist</button>
+          </article>
+        `).join('')
+        : `<div class="empty-state" style="grid-column:1/-1"><div class="empty-state-icon">♡</div><h3>Your shortlist is ready</h3><p>Save products from the catalog and they will appear here.</p><a href="catalog.html" class="btn btn-primary" style="margin-top:1rem">Explore products</a></div>`;
+    }
+
+    function removeWishlistItem(id) {
+      Wishlist.save(Wishlist.get().filter(productId => productId !== id));
+      renderWishlist();
+    }
+
+    function clearWishlist() {
+      Wishlist.save([]);
+      renderWishlist();
+      DataService.toast('Wishlist cleared', 'success');
+    }
+
+    document.addEventListener('DOMContentLoaded', renderWishlist);
+  </script>
+</body>
+</html>

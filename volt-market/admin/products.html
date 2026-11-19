@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Products — VOLT Admin</title>
+  <link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+  <script src="../js/data-service.js"></script>
+  <script src="../js/i18n.js"></script>
+  <script src="js/admin-auth.js"></script>
+  <script src="js/admin-core.js"></script>
+  <script>
+    let allProducts = [];
+    let filtered = [];
+    let currentPage = 1;
+    const perPage = 20;
+
+    document.addEventListener('DOMContentLoaded', () => {
+      if (!AdminAuth.requireAuth()) return;
+      if (typeof initializeDemoData === 'function') initializeDemoData();
+
+      const content = AdminUI.initLayout('products', 'Products');
+      allProducts = AdminUI.getProducts();
+      filtered = [...allProducts];
+
+      render(content);
+    });
+
+    function render(content) {
+      const start = (currentPage - 1) * perPage;
+      const pageItems = filtered.slice(start, start + perPage);
+      const totalPages = Math.ceil(filtered.length / perPage);
+      const categories = AdminUI.getCategories();
+
+      content.innerHTML = `
+        <div class="toolbar">
+          <div class="toolbar-left">
+            <div class="search-wrap">
+              <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+              <input type="text" class="search-input a-input" id="searchInput" placeholder="Search products..." oninput="handleSearch()">
+            </div>
+            <select class="a-select" id="filterCategory" style="width:160px" onchange="handleFilter()">
+              <option value="">All Categories</option>
+              ${categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}
+            </select>
+            <select class="a-select" id="filterStatus" style="width:140px" onchange="handleFilter()">
+              <option value="">All Status</option>
+              <option value="active">Active</option>
+              <option value="out_of_stock">Out of Stock</option>
+            </select>
+            <select class="a-select" id="sortBy" style="width:140px" onchange="handleFilter()">
+              <option value="newest">Newest</option>
+              <option value="name">Name</option>
+              <option value="price-asc">Price ↑</option>
+              <option value="price-desc">Price ↓</option>
+              <option value="stock">Stock</option>
+            </select>
+          </div>
+          <div class="toolbar-right">
+            <button class="a-btn a-btn-secondary a-btn-sm" onclick="exportProducts()">Export JSON</button>
+            <a href="add-product.html" class="a-btn a-btn-primary a-btn-sm">+ Add Product</a>
+          </div>
+        </div>
+
+        <div class="a-card">
+          <div class="a-card-body" style="padding:0">
+            <div class="a-table-wrap">
+              <table class="a-table">
+                <thead>
+                  <tr>
+                    <th><input type="checkbox" id="selectAll" onchange="toggleSelectAll()"></th>
+                    <th>Product</th>
+                    <th>SKU</th>
+                    <th>Category</th>
+                    <th>Price</th>
+                    <th>Stock</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${pageItems.map(p => `
+                    <tr>
+                      <td><input type="checkbox" class="row-check" value="${p.id}"></td>
+                      <td>
+                        <div style="display:flex;align-items:center;gap:10px">
+                          <img src="${p.mainImage}" class="prod-thumb" onerror="this.src='../assets/images/product-placeholder.svg'">
+                          <div>
+                            <div style="font-weight:500;font-size:0.85rem;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.name}</div>
+                            <div style="font-size:0.75rem;color:var(--admin-text3)">${p.brandName}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td style="font-size:0.8rem;color:var(--admin-text2)">${p.sku}</td>
+                      <td>${p.categoryName}</td>
+                      <td>
+                        <strong>${AdminUI.formatPrice(p.price)}</strong>
+                        ${p.oldPrice ? `<br><span style="font-size:0.75rem;color:var(--admin-text3);text-decoration:line-through">${AdminUI.formatPrice(p.oldPrice)}</span>` : ''}
+                      </td>
+                      <td>
+                        <span style="color:${p.stock <= 10 ? 'var(--admin-warning)' : p.stock === 0 ? 'var(--admin-error)' : 'inherit'}">${p.stock}</span>
+                      </td>
+                      <td>${AdminUI.getStatusBadge(p.status)}</td>
+                      <td>
+                        <div style="display:flex;gap:4px">
+                          <button class="a-btn a-btn-secondary a-btn-icon a-btn-sm" onclick="editProduct('${p.id}')" title="Edit">✏️</button>
+                          <button class="a-btn a-btn-danger a-btn-icon a-btn-sm" onclick="deleteProduct('${p.id}')" title="Delete">🗑️</button>
+                        </div>
+                      </td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="a-pagination">
+          <span>Showing ${start + 1}-${Math.min(start + perPage, filtered.length)} of ${filtered.length} products</span>
+          <div class="page-btns">
+            <button onclick="goPage(${currentPage - 1})" ${currentPage <= 1 ? 'disabled' : ''}>‹</button>
+            ${Array.from({length: Math.min(totalPages, 5)}, (_, i) => {
+              let page = currentPage <= 3 ? i + 1 : currentPage - 2 + i;
+              if (page > totalPages) return '';
+              return `<button class="${page === currentPage ? 'active' : ''}" onclick="goPage(${page})">${page}</button>`;
+            }).join('')}
+            <button onclick="goPage(${currentPage + 1})" ${currentPage >= totalPages ? 'disabled' : ''}>›</button>
+          </div>
+        </div>
+      `;
+    }
+
+    function handleSearch() {
+      handleFilter();
+    }
+
+    function handleFilter() {
+      const q = (document.getElementById('searchInput')?.value || '').toLowerCase();
+      const cat = document.getElementById('filterCategory')?.value || '';
+      const status = document.getElementById('filterStatus')?.value || '';
+      const sort = document.getElementById('sortBy')?.value || 'newest';
+
+      filtered = allProducts.filter(p => {
+        if (q && !p.name.toLowerCase().includes(q) && !p.sku.toLowerCase().includes(q) && !p.brandName.toLowerCase().includes(q)) return false;
+        if (cat && p.categoryId !== cat) return false;
+        if (status && p.status !== status) return false;
+        return true;
+      });
+
+      switch (sort) {
+        case 'name': filtered.sort((a, b) => a.name.localeCompare(b.name)); break;
+        case 'price-asc': filtered.sort((a, b) => a.price - b.price); break;
+        case 'price-desc': filtered.sort((a, b) => b.price - a.price); break;
+        case 'stock': filtered.sort((a, b) => a.stock - b.stock); break;
+        default: filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      }
+
+      currentPage = 1;
+      render(document.getElementById('adminContent'));
+    }
+
+    function goPage(p) {
+      const totalPages = Math.ceil(filtered.length / perPage);
+      if (p < 1 || p > totalPages) return;
+      currentPage = p;
+      render(document.getElementById('adminContent'));
+    }
+
+    function toggleSelectAll() {
+      const checked = document.getElementById('selectAll').checked;
+      document.querySelectorAll('.row-check').forEach(c => c.checked = checked);
+    }
+
+    function deleteProduct(id) {
+      if (!confirm('Delete this product?')) return;
+      allProducts = allProducts.filter(p => p.id !== id);
+      AdminUI.saveProducts(allProducts);
+      filtered = filtered.filter(p => p.id !== id);
+      AdminUI.toast('Product deleted', 'success');
+      render(document.getElementById('adminContent'));
+    }
+
+    function editProduct(id) {
+      window.location.href = `add-product.html?id=${id}`;
+    }
+
+    function exportProducts() {
+      const data = JSON.stringify(allProducts, null, 2);
+      const blob = new Blob([data], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'volt-products.json';
+      a.click();
+      URL.revokeObjectURL(url);
+      AdminUI.toast('Products exported', 'success');
+    }
+  </script>
+</body>
+</html>

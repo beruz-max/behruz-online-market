@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login — VOLT MARKET</title>
+  <link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+  <div id="site-header"></div>
+  <div class="container" style="max-width:440px;padding:3rem 1.5rem">
+    <div class="card" style="padding:2rem">
+      <h1 style="font-size:1.5rem;font-weight:700;text-align:center;margin-bottom:0.5rem">Welcome Back</h1>
+      <p style="text-align:center;color:var(--text-secondary);margin-bottom:2rem;font-size:0.95rem">Sign in to your VOLT MARKET account</p>
+      <div id="errorMsg" style="display:none;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);color:var(--error);padding:0.75rem;border-radius:8px;margin-bottom:1rem;font-size:0.9rem"></div>
+      <form onsubmit="handleLogin(event)">
+        <div class="form-group"><label class="form-label">Email</label><input type="email" class="form-input" id="email" required placeholder="demo@voltmarket.com"></div>
+        <div class="form-group"><label class="form-label">Password</label><input type="password" class="form-input" id="password" required placeholder="demo123"></div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:1.5rem;font-size:0.9rem">
+          <label style="display:flex;align-items:center;gap:6px;color:var(--text-secondary)"><input type="checkbox"> Remember me</label>
+          <a href="admin/" style="color:var(--accent-secondary)">Admin login</a>
+        </div>
+        <button type="submit" class="btn btn-primary" style="width:100%;padding:0.85rem">Sign In</button>
+      </form>
+      <p style="text-align:center;margin-top:1.5rem;font-size:0.9rem;color:var(--text-secondary)">Don't have an account? <a href="register.html" style="color:var(--accent-secondary);font-weight:600">Register</a></p>
+      <div style="margin-top:1.5rem;padding:1rem;background:rgba(22,119,255,0.08);border-radius:8px;font-size:0.8rem;color:var(--text-secondary)">
+        <strong style="color:var(--accent-secondary)">Demo:</strong> demo@voltmarket.com / demo123
+      </div>
+    </div>
+  </div>
+  <div id="site-footer"></div>
+  <script src="js/data-service.js"></script>
+  <script src="js/i18n.js"></script>
+  <script src="js/core.js"></script>
+  <script>
+    function handleLogin(e) {
+      e.preventDefault();
+      const result = Auth.login(document.getElementById('email').value, document.getElementById('password').value);
+      if (result.success) {
+        const redirect = new URLSearchParams(window.location.search).get('redirect') || 'index.html';
+        window.location.href = redirect;
+      } else {
+        const el = document.getElementById('errorMsg');
+        el.textContent = result.message;
+        el.style.display = 'block';
+      }
+    }
+  </script>
+</body>
+</html>

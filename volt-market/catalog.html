@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Catalog — VOLT MARKET</title>
+  <link rel="stylesheet" href="css/main.css">
+  <style>
+    .catalog-layout { display: grid; grid-template-columns: 260px 1fr; gap: 2rem; }
+    .filters { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 1.5rem; height: fit-content; position: sticky; top: 140px; }
+    .filter-group { margin-bottom: 1.5rem; }
+    .filter-group h4 { font-size: 0.85rem; font-weight: 600; margin-bottom: 0.75rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; }
+    .filter-option { display: flex; align-items: center; gap: 8px; padding: 0.4rem 0; font-size: 0.9rem; cursor: pointer; color: var(--text-secondary); }
+    .filter-option:hover, .filter-option.active { color: var(--accent-secondary); }
+    .filter-option input { accent-color: var(--accent-primary); }
+    .catalog-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }
+    @media (max-width: 900px) { .catalog-layout { grid-template-columns: 1fr; } .filters { position: static; } }
+  </style>
+</head>
+<body>
+  <div id="site-header"></div>
+  <div class="container" style="padding: 2rem 1.5rem">
+    <div class="catalog-layout">
+      <aside class="filters" id="filters">
+        <div class="filter-group">
+          <h4>Category</h4>
+          <div id="filterCategories"></div>
+        </div>
+        <div class="filter-group">
+          <h4>Brand</h4>
+          <select class="form-select" id="brandFilter" onchange="applyFilters()">
+            <option value="">All brands</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <h4>Customer rating</h4>
+          <select class="form-select" id="ratingFilter" onchange="applyFilters()">
+            <option value="0">Any rating</option>
+            <option value="4">4 stars & up</option>
+            <option value="4.5">4.5 stars & up</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <h4>Price Range</h4>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input type="number" class="form-input" id="minPrice" placeholder="Min" style="padding:0.5rem" onchange="applyFilters()">
+            <span>-</span>
+            <input type="number" class="form-input" id="maxPrice" placeholder="Max" style="padding:0.5rem" onchange="applyFilters()">
+          </div>
+        </div>
+        <div class="filter-group">
+          <h4>Options</h4>
+          <label class="filter-option"><input type="checkbox" id="inStock" onchange="applyFilters()"> In Stock Only</label>
+          <label class="filter-option"><input type="checkbox" id="onSale" onchange="applyFilters()"> On Sale</label>
+        </div>
+        <button class="btn btn-secondary btn-sm" style="width:100%" onclick="resetFilters()">Reset Filters</button>
+      </aside>
+      <main>
+        <div class="catalog-header">
+          <div>
+            <h1 style="font-size:1.5rem;font-weight:700">All Products</h1>
+            <p style="color:var(--text-secondary);font-size:0.9rem" id="resultCount">Loading...</p>
+          </div>
+          <select class="form-select" id="sortSelect" style="width:180px" onchange="applyFilters()">
+            <option value="newest">Newest</option>
+            <option value="popular">Most Popular</option>
+            <option value="price-asc">Price: Low to High</option>
+            <option value="price-desc">Price: High to Low</option>
+            <option value="rating">Top Rated</option>
+            <option value="name">Name A-Z</option>
+          </select>
+        </div>
+        <div class="product-grid" id="productGrid"></div>
+        <div class="pagination" id="pagination"></div>
+      </main>
+    </div>
+  </div>
+  <div id="site-footer"></div>
+  <script src="js/data-service.js"></script>
+  <script src="js/i18n.js"></script>
+  <script src="js/core.js"></script>
+  <script>
+    let allProducts = [], filtered = [], currentPage = 1, perPage = 24, selectedCategory = '', selectedBrand = '';
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const params = new URLSearchParams(window.location.search);
+      const categories = DataService.get(VOLT_STORAGE_KEYS.categories) || [];
+      const brands = DataService.get(VOLT_STORAGE_KEYS.brands) || [];
+      const requestedCategory = params.get('cat');
+      const requestedBrand = params.get('brand');
+      const category = categories.find(c => c.id === requestedCategory || c.slug === requestedCategory);
+      const brand = brands.find(b => b.id === requestedBrand || b.slug === requestedBrand);
+      const view = params.get('view');
+      const filter = params.get('filter');
+      const query = params.get('q');
+
+      selectedCategory = category?.id || '';
+      selectedBrand = brand?.id || '';
+      allProducts = query
+        ? ProductHelper.search(query)
+        : ProductHelper.getAll().filter(p => p.status === 'active');
+
+      if (filter === 'new') allProducts = allProducts.filter(p => p.isNew);
+      if (view === 'wishlist') allProducts = allProducts.filter(p => Wishlist.has(p.id));
+      if (view === 'compare') allProducts = allProducts.filter(p => Compare.has(p.id));
+
+      document.getElementById('filterCategories').innerHTML = categories.map(c =>
+        `<label class="filter-option ${selectedCategory === c.id ? 'active' : ''}" onclick="selectCategory('${c.id}', this)"><input type="radio" name="cat" ${selectedCategory === c.id ? 'checked' : ''}> ${c.name} (${c.productCount})</label>`
+      ).join('');
+      document.getElementById('brandFilter').innerHTML += brands.map(b => `<option value="${b.id}" ${selectedBrand === b.id ? 'selected' : ''}>${b.name}</option>`).join('');
+
+      if (filter === 'deals') document.getElementById('onSale').checked = true;
+      if (query || view) {
+        document.querySelector('.catalog-header h1').textContent = query ? `Search: ${query}` : view === 'wishlist' ? 'My Wishlist' : 'Compare List';
+      } else if (filter === 'deals') {
+        document.querySelector('.catalog-header h1').textContent = 'Hot Deals';
+      } else if (filter === 'new') {
+        document.querySelector('.catalog-header h1').textContent = 'New Arrivals';
+      } else if (category) {
+        document.querySelector('.catalog-header h1').textContent = category.name;
+      } else if (brand) {
+        document.querySelector('.catalog-header h1').textContent = brand.name;
+      }
+
+      applyFilters();
+    });
+
+    function selectCategory(id, el) {
+      selectedCategory = selectedCategory === id ? '' : id;
+      document.querySelectorAll('#filterCategories .filter-option').forEach(o => o.classList.remove('active'));
+      document.querySelectorAll('#filterCategories input[name="cat"]').forEach(input => input.checked = false);
+      if (selectedCategory) {
+        el.classList.add('active');
+        el.querySelector('input').checked = true;
+      }
+      applyFilters();
+    }
+
+    function applyFilters() {
+      const filters = {
+        category: selectedCategory,
+        brand: document.getElementById('brandFilter').value,
+        rating: Number(document.getElementById('ratingFilter').value) || undefined,
+        minPrice: parseFloat(document.getElementById('minPrice').value) || undefined,
+        maxPrice: parseFloat(document.getElementById('maxPrice').value) || undefined,
+        inStock: document.getElementById('inStock').checked,
+        onSale: document.getElementById('onSale').checked,
+        sort: document.getElementById('sortSelect').value
+      };
+      filtered = ProductHelper.filter(allProducts, filters);
+      currentPage = 1;
+      render();
+    }
+
+    function resetFilters() {
+      selectedCategory = '';
+      selectedBrand = '';
+      document.getElementById('minPrice').value = '';
+      document.getElementById('maxPrice').value = '';
+      document.getElementById('brandFilter').value = '';
+      document.getElementById('ratingFilter').value = '0';
+      document.getElementById('inStock').checked = false;
+      document.getElementById('onSale').checked = false;
+      document.getElementById('sortSelect').value = 'newest';
+      document.querySelectorAll('#filterCategories .filter-option').forEach(o => o.classList.remove('active'));
+      document.querySelectorAll('#filterCategories input[name="cat"]').forEach(input => input.checked = false);
+      applyFilters();
+    }
+
+    function render() {
+      const start = (currentPage - 1) * perPage;
+      const items = filtered.slice(start, start + perPage);
+      const totalPages = Math.ceil(filtered.length / perPage);
+      document.getElementById('resultCount').textContent = `${filtered.length} products found`;
+      document.getElementById('productGrid').innerHTML = items.length
+        ? items.map(p => ProductHelper.renderCard(p)).join('')
+        : '<div class="empty-state"><div class="empty-state-icon">📦</div><h3>No products found</h3><p>Try adjusting your filters</p></div>';
+      
+      let pagHtml = '';
+      if (totalPages > 1) {
+        const firstPage = Math.max(1, Math.min(currentPage - 3, totalPages - 6));
+        const lastPage = Math.min(totalPages, firstPage + 6);
+        pagHtml = `<button class="page-btn" onclick="goPage(${currentPage-1})" ${currentPage<=1?'disabled':''} aria-label="Previous page">‹</button>`;
+        if (firstPage > 1) pagHtml += `<button class="page-btn" onclick="goPage(1)">1</button>${firstPage > 2 ? '<span style="color:var(--text-muted)">…</span>' : ''}`;
+        for (let i = firstPage; i <= lastPage; i++) {
+          pagHtml += `<button class="page-btn ${i===currentPage?'active':''}" onclick="goPage(${i})">${i}</button>`;
+        }
+        if (lastPage < totalPages) pagHtml += `${lastPage < totalPages - 1 ? '<span style="color:var(--text-muted)">…</span>' : ''}<button class="page-btn" onclick="goPage(${totalPages})">${totalPages}</button>`;
+        pagHtml += `<button class="page-btn" onclick="goPage(${currentPage+1})" ${currentPage>=totalPages?'disabled':''} aria-label="Next page">›</button>`;
+      }
+      document.getElementById('pagination').innerHTML = pagHtml;
+    }
+
+    function goPage(p) {
+      const totalPages = Math.ceil(filtered.length / perPage);
+      if (p < 1 || p > totalPages) return;
+      currentPage = p;
+      render();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  </script>
+</body>
+</html>

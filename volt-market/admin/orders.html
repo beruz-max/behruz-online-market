@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Orders — VOLT Admin</title>
+  <link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+  <script src="../js/data-service.js"></script>
+  <script src="../js/i18n.js"></script>
+  <script src="js/admin-auth.js"></script>
+  <script src="js/admin-core.js"></script>
+  <script>
+    let allOrders = [], filtered = [], currentPage = 1;
+    const perPage = 15;
+
+    document.addEventListener('DOMContentLoaded', () => {
+      if (!AdminAuth.requireAuth()) return;
+      if (typeof initializeDemoData === 'function') initializeDemoData();
+      const content = AdminUI.initLayout('orders', 'Orders');
+      allOrders = AdminUI.getOrders().sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
+      filtered = [...allOrders];
+      render(content);
+    });
+
+    function render(content) {
+      const start = (currentPage - 1) * perPage;
+      const pageItems = filtered.slice(start, start + perPage);
+      const totalPages = Math.ceil(filtered.length / perPage);
+      const statuses = ['all','pending','processing','shipped','delivered','cancelled'];
+
+      content.innerHTML = `
+        <div class="toolbar">
+          <div class="toolbar-left">
+            <div class="search-wrap">
+              <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+              <input type="text" class="search-input a-input" id="searchInput" placeholder="Search orders..." oninput="handleFilter()">
+            </div>
+            <select class="a-select" id="statusFilter" style="width:150px" onchange="handleFilter()">
+              ${statuses.map(s => `<option value="${s}">${s === 'all' ? 'All Status' : s.charAt(0).toUpperCase() + s.slice(1)}</option>`).join('')}
+            </select>
+          </div>
+          <div class="toolbar-right">
+            <span style="font-size:0.85rem;color:var(--admin-text2)">${filtered.length} orders</span>
+          </div>
+        </div>
+        <div class="a-card">
+          <div class="a-card-body" style="padding:0">
+            <div class="a-table-wrap">
+              <table class="a-table">
+                <thead>
+                  <tr>
+                    <th>Order ID</th>
+                    <th>Customer</th>
+                    <th>Items</th>
+                    <th>Total</th>
+                    <th>Payment</th>
+                    <th>Status</th>
+                    <th>Date</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${pageItems.map(o => `
+                    <tr>
+                      <td><strong>${o.id}</strong></td>
+                      <td>
+                        <div>${o.customerName}</div>
+                        <div style="font-size:0.75rem;color:var(--admin-text3)">${o.customerEmail}</div>
+                      </td>
+                      <td>${o.items.length} item(s)</td>
+                      <td><strong>${AdminUI.formatPrice(o.total)}</strong></td>
+                      <td style="text-transform:capitalize;font-size:0.85rem">${(o.paymentMethod||'').replace(/_/g,' ')}</td>
+                      <td>
+                        <select class="a-select" style="width:130px;padding:0.35rem 0.5rem;font-size:0.8rem" onchange="updateStatus('${o.id}', this.value)">
+                          ${['pending','processing','shipped','delivered','cancelled'].map(s => 
+                            `<option value="${s}" ${o.status===s?'selected':''}>${s}</option>`
+                          ).join('')}
+                        </select>
+                      </td>
+                      <td>${AdminUI.formatDate(o.createdAt)}</td>
+                      <td>
+                        <button class="a-btn a-btn-secondary a-btn-sm" onclick="viewOrder('${o.id}')">View</button>
+                      </td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        <div class="a-pagination">
+          <span>Showing ${start+1}-${Math.min(start+perPage, filtered.length)} of ${filtered.length}</span>
+          <div class="page-btns">
+            <button onclick="goPage(${currentPage-1})" ${currentPage<=1?'disabled':''}>‹</button>
+            <button class="active">${currentPage}</button>
+            <button onclick="goPage(${currentPage+1})" ${currentPage>=totalPages?'disabled':''}>›</button>
+          </div>
+        </div>
+      `;
+    }
+
+    function handleFilter() {
+      const q = (document.getElementById('searchInput')?.value || '').toLowerCase();
+      const status = document.getElementById('statusFilter')?.value || 'all';
+      filtered = allOrders.filter(o => {
+        if (status !== 'all' && o.status !== status) return false;
+        if (q && !o.id.toLowerCase().includes(q) && !o.customerName.toLowerCase().includes(q) && !o.customerEmail.toLowerCase().includes(q)) return false;
+        return true;
+      });
+      currentPage = 1;
+      render(document.getElementById('adminContent'));
+    }
+
+    function goPage(p) {
+      const totalPages = Math.ceil(filtered.length / perPage);
+      if (p < 1 || p > totalPages) return;
+      currentPage = p;
+      render(document.getElementById('adminContent'));
+    }
+
+    function updateStatus(orderId, newStatus) {
+      const orders = AdminUI.getOrders();
+      const idx = orders.findIndex(o => o.id === orderId);
+      if (idx === -1) return;
+      const previousStatus = orders[idx].status;
+      orders[idx].status = newStatus;
+      orders[idx].updatedAt = new Date().toISOString();
+      if (newStatus === 'shipped' && !orders[idx].trackingNumber) {
+        orders[idx].trackingNumber = 'TRK' + Math.random().toString(36).substr(2, 10).toUpperCase();
+      }
+      // Restore stock if cancelled
+      if (newStatus === 'cancelled' && previousStatus !== 'cancelled') {
+        const products = AdminUI.getProducts();
+        orders[idx].items.forEach(item => {
+          const pi = products.findIndex(p => p.id === item.productId);
+          if (pi > -1) {
+            products[pi].stock += item.quantity;
+            products[pi].status = 'active';
+          }
+        });
+        AdminUI.saveProducts(products);
+      }
+      AdminUI.saveOrders(orders);
+      allOrders = orders.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
+      AdminUI.toast(`Order ${orderId} updated to ${newStatus}`, 'success');
+      handleFilter();
+    }
+
+    function viewOrder(id) {
+      const o = allOrders.find(x => x.id === id);
+      if (!o) return;
+      alert(`Order: ${o.id}\nCustomer: ${o.customerName}\nTotal: ${AdminUI.formatPrice(o.total)}\nStatus: ${o.status}\nItems:\n${o.items.map(i => `  - ${i.productName} x${i.quantity}`).join('\n')}\nAddress: ${o.shippingAddress?.address}, ${o.shippingAddress?.city}`);
+    }
+  </script>
+</body>
+</html>
